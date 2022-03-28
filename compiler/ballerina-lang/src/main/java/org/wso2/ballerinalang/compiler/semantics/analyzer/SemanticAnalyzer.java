@@ -521,7 +521,7 @@ public class SemanticAnalyzer extends SimpleBLangNodeAnalyzer<SemanticAnalyzer.A
             }
             // Types are narrowed following an `if` statement without an `else`, if it's not completed normally.
             SymbolEnv narrowedBlockEnv = typeNarrower.evaluateFalsity(ifStmt.expr, currentStmt, currentEnv, false);
-            data.env = narrowedBlockEnv;
+            data.narrowedEnv = narrowedBlockEnv;
             analyzeStmt(currentStmt, data);
             return true;
         }
@@ -4082,6 +4082,10 @@ public class SemanticAnalyzer extends SimpleBLangNodeAnalyzer<SemanticAnalyzer.A
         data.prevEnvs.push(data.env);
         BType preExpType = data.expType;
         data.expType = expType;
+        if (data.narrowedEnv != null) {
+            data.env = data.narrowedEnv;
+            data.narrowedEnv = null;
+        }
         node.accept(this, data);
         data.env = data.prevEnvs.pop();
         data.expType = preExpType;
@@ -4713,6 +4717,7 @@ public class SemanticAnalyzer extends SimpleBLangNodeAnalyzer<SemanticAnalyzer.A
      */
     public static class AnalyzerData {
         SymbolEnv env;
+        SymbolEnv narrowedEnv;
         BType expType;
         Map<BVarSymbol, BType.NarrowedTypes> narrowedTypeInfo;
         boolean notCompletedNormally;
