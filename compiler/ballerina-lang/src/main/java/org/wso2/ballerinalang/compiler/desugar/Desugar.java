@@ -6966,13 +6966,10 @@ public class Desugar extends BLangNodeVisitor {
          * int? z = x + y;
          * Above is desugared to
          * int? $result$;
-         * // Evaluate both operands to avoid short-circuiting.
-         * int? $lhsExprVar$ = x;
-         * int? $rhsExprVar$ = y;
-         * if (lhsVar is () or rhsVar is ()) {
+         * if (x is () or y is ()) {
          *    $result$ = ();
          * } else {
-         *    $result$ = $lhsExprVar$ + $rhsExprVar$;
+         *    $result$ = x + y;
          * }
          * int z = $result$;
          */
@@ -7013,20 +7010,12 @@ public class Desugar extends BLangNodeVisitor {
         BLangSimpleVarRef tempVarRef = ASTBuilderUtil.createVariableRef(binaryExpr.pos, tempVarDef.var.symbol);
         blockStmt.addStatement(tempVarDef);
 
-        BLangSimpleVariableDef lhsVarDef = createVarDef("$lhsExprVar$", binaryExpr.lhsExpr.getBType(),
-                binaryExpr.lhsExpr, binaryExpr.pos);
-        BLangSimpleVarRef lhsVarRef = ASTBuilderUtil.createVariableRef(binaryExpr.pos, lhsVarDef.var.symbol);
-        blockStmt.addStatement(lhsVarDef);
-
-        BLangSimpleVariableDef rhsVarDef = createVarDef("$rhsExprVar$", binaryExpr.rhsExpr.getBType(),
-                binaryExpr.rhsExpr, binaryExpr.pos);
-        BLangSimpleVarRef rhsVarRef = ASTBuilderUtil.createVariableRef(binaryExpr.pos, rhsVarDef.var.symbol);
-        blockStmt.addStatement(rhsVarDef);
-
-        BLangTypeTestExpr typeTestExprOne = createTypeCheckExpr(binaryExpr.pos, lhsVarRef, getNillTypeNode());
+        BLangTypeTestExpr typeTestExprOne = createTypeCheckExpr(binaryExpr.pos, binaryExpr.lhsExpr,
+                getNillTypeNode());
         typeTestExprOne.setBType(symTable.booleanType);
 
-        BLangTypeTestExpr typeTestExprTwo = createTypeCheckExpr(binaryExpr.pos, rhsVarRef, getNillTypeNode());
+        BLangTypeTestExpr typeTestExprTwo = createTypeCheckExpr(binaryExpr.pos,
+                binaryExpr.rhsExpr, getNillTypeNode());
         typeTestExprTwo.setBType(symTable.booleanType);
 
         BLangBinaryExpr ifBlockCondition = ASTBuilderUtil.createBinaryExpr(binaryExpr.pos, typeTestExprOne,
@@ -7041,10 +7030,10 @@ public class Desugar extends BLangNodeVisitor {
         BLangAssignment bLangAssignmentElse = ASTBuilderUtil.createAssignmentStmt(binaryExpr.pos, elseBody);
         bLangAssignmentElse.varRef = tempVarRef;
 
-        BLangBinaryExpr newBinaryExpr = ASTBuilderUtil.createBinaryExpr(binaryExpr.pos, lhsVarRef, rhsVarRef,
-                nonNilType, binaryExpr.opKind, binaryExpr.opSymbol);
-        newBinaryExpr.lhsExpr = createTypeCastExpr(lhsVarRef, lhsType);
-        newBinaryExpr.rhsExpr = createTypeCastExpr(rhsVarRef, rhsType);
+        BLangBinaryExpr newBinaryExpr = ASTBuilderUtil.createBinaryExpr(binaryExpr.pos, binaryExpr.lhsExpr,
+                binaryExpr.rhsExpr, nonNilType, binaryExpr.opKind, binaryExpr.opSymbol);
+        newBinaryExpr.lhsExpr = createTypeCastExpr(newBinaryExpr.lhsExpr, lhsType);
+        newBinaryExpr.rhsExpr = createTypeCastExpr(newBinaryExpr.rhsExpr, rhsType);
         bLangAssignmentElse.expr = newBinaryExpr;
 
         BLangIf ifStatement = ASTBuilderUtil.createIfStmt(binaryExpr.pos, blockStmt);

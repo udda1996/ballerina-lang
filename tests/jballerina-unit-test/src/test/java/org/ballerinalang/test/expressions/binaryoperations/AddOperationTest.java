@@ -162,19 +162,6 @@ public class AddOperationTest {
         };
     }
 
-    @Test(dataProvider = "dataToTestShortCircuitingInAddition")
-    public void testShortCircuitingInAddition(String functionName) {
-        BRunUtil.invoke(result, functionName);
-    }
-
-    @DataProvider
-    public Object[] dataToTestShortCircuitingInAddition() {
-        return new Object[]{
-                "testNoShortCircuitingInAdditionWithNullable",
-                "testNoShortCircuitingInAdditionWithNonNullable"
-        };
-    }
-
     @Test(description = "Test binary statement with errors")
     public void testSubtractStmtNegativeCases() {
         Assert.assertEquals(resultNegative.getErrorCount(), 17);

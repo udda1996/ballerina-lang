@@ -168,17 +168,4 @@ public class DivisionOperationTest {
                 "testResultTypeOfDivisionDecimalIntForNilableOperandsByInfering",
         };
     }
-
-    @Test(dataProvider = "dataToTestShortCircuitingInDivision")
-    public void testShortCircuitingInDivision(String functionName) {
-        BRunUtil.invoke(result, functionName);
-    }
-
-    @DataProvider
-    public Object[] dataToTestShortCircuitingInDivision() {
-        return new Object[]{
-                "testNoShortCircuitingInDivisionWithNullable",
-                "testNoShortCircuitingInDivisionWithNonNullable"
-        };
-    }
 }
