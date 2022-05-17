@@ -18,8 +18,11 @@
 package org.wso2.ballerinalang.compiler.bir.codegen.interop;
 
 import org.ballerinalang.compiler.BLangCompilerException;
-import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
+import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRAnnotationArrayValue;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRAnnotationAttachment;
+import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRAnnotationLiteralValue;
+import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRAnnotationRecordValue;
+import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRAnnotationValue;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRFunction;
 
 import java.util.ArrayList;
@@ -73,8 +76,8 @@ public class AnnotationProc {
 
     private static boolean isInteropAnnotAttachment(BIRAnnotationAttachment annotAttach) {
 
-        return INTEROP_ANNOT_ORG.equals(annotAttach.annotPkgId.orgName.value) &&
-                INTEROP_ANNOT_MODULE.equals(annotAttach.annotPkgId.name.value) &&
+        return INTEROP_ANNOT_ORG.equals(annotAttach.packageID.orgName.value) &&
+                INTEROP_ANNOT_MODULE.equals(annotAttach.packageID.name.value) &&
                 isInteropAnnotationTag(annotAttach.annotTagRef.value);
     }
 
@@ -82,8 +85,8 @@ public class AnnotationProc {
                                                                             BIRAnnotationAttachment annotAttach,
                                                                             BIRFunction birFunc) {
 
-        BIRNode.ConstValue annotRecValue = ((BIRNode.BIRConstAnnotationAttachment) annotAttach).annotValue;
-        Map<String, BIRNode.ConstValue> annotValueMap = (Map<String, BIRNode.ConstValue>) annotRecValue.value;
+        BIRAnnotationRecordValue annotRecValue = (BIRAnnotationRecordValue) annotAttach.annotValues.get(0);
+        Map<String, BIRAnnotationValue> annotValueMap = annotRecValue.annotValueEntryMap;
         if (isMethodAnnotationTag(annotTagRef)) {
             return createJMethodValidationRequest(annotTagRef, annotValueMap, birFunc);
         } else {
@@ -92,7 +95,7 @@ public class AnnotationProc {
     }
 
     private static InteropValidationRequest createJMethodValidationRequest(String annotTagRef,
-                                                                           Map<String, BIRNode.ConstValue> annotValues,
+                                                                           Map<String, BIRAnnotationValue> annotValues,
                                                                            BIRFunction birFunc) {
 
         InteropValidationRequest.MethodValidationRequest valRequest =
@@ -114,7 +117,7 @@ public class AnnotationProc {
     }
 
     private static InteropValidationRequest createJFieldValidationRequest(String annotTagRef,
-                                                                          Map<String, BIRNode.ConstValue> annotValues,
+                                                                          Map<String, BIRAnnotationValue> annotValues,
                                                                           BIRFunction birFunc) {
 
         return new InteropValidationRequest.FieldValidationRequest(
@@ -123,43 +126,39 @@ public class AnnotationProc {
                 birFunc.type, getFieldMethodFromAnnotTag(annotTagRef));
     }
 
-    private static List<JType> buildParamTypeConstraints(BIRNode.ConstValue annotValue) {
-        if (annotValue == null) {
-            return null;
-        }
+    private static List<JType> buildParamTypeConstraints(BIRAnnotationValue annotValue) {
 
-        Object value = annotValue.value;
-
-        BIRNode.ConstValue[] annotArrayElements = (BIRNode.ConstValue[]) value;
-        List<JType> constraints = new ArrayList<>(annotArrayElements.length);
-        for (BIRNode.ConstValue annotArrayElement : annotArrayElements) {
-            JType jType;
-            Object elementValue = annotArrayElement.value;
-            if (elementValue instanceof String) {
-                jType = getJTypeFromTypeName((String) elementValue);
-            } else if (elementValue instanceof Map) {
-                Map<String, BIRNode.ConstValue> annotValueMap = (Map<String, BIRNode.ConstValue>) elementValue;
-                String elementClass = (String) getLiteralValueFromAnnotValue(annotValueMap.get(CLASS_FIELD_NAME));
-                byte dimensions = ((Long) getLiteralValueFromAnnotValue(annotValueMap.get(DIMENSIONS_FIELD_NAME)))
-                        .byteValue();
-                jType = getJArrayTypeFromTypeName(elementClass, dimensions);
-            } else {
-                throw new BLangCompilerException("unexpected annotation value: " + annotArrayElement);
+        if (annotValue instanceof BIRAnnotationArrayValue) {
+            BIRAnnotationValue[] annotArrayElements = ((BIRAnnotationArrayValue) annotValue).annotArrayValue;
+            List<JType> constraints = new ArrayList<>();
+            for (BIRAnnotationValue annotArrayElement : annotArrayElements) {
+                JType jType;
+                if (annotArrayElement instanceof BIRAnnotationLiteralValue) {
+                    jType = getJTypeFromTypeName((String) ((BIRAnnotationLiteralValue) annotArrayElement).value);
+                } else if (annotArrayElement instanceof BIRAnnotationRecordValue) {
+                    Map<String, BIRAnnotationValue> annotValueMap =
+                            ((BIRAnnotationRecordValue) annotArrayElement).annotValueEntryMap;
+                    String elementClass = (String) getLiteralValueFromAnnotValue(annotValueMap.get(CLASS_FIELD_NAME));
+                    byte dimensions = ((Long) getLiteralValueFromAnnotValue(annotValueMap.get(DIMENSIONS_FIELD_NAME)))
+                            .byteValue();
+                    jType = getJArrayTypeFromTypeName(elementClass, dimensions);
+                } else {
+                    throw new BLangCompilerException("unexpected annotation value: " + annotArrayElement);
+                }
+                constraints.add(jType);
             }
-            constraints.add(jType);
-        }
 
-        return constraints;
+            return constraints;
+        }
+        return null;
     }
 
-    private static Object getLiteralValueFromAnnotValue(BIRNode.ConstValue annotValue) {
+    private static Object getLiteralValueFromAnnotValue(BIRAnnotationValue annotValue) {
+
         if (annotValue == null) {
             return null;
-        }
-
-        Object value = annotValue.value;
-        if (value instanceof String || value instanceof Long) {
-            return value;
+        } else if (annotValue instanceof BIRAnnotationLiteralValue) {
+            return ((BIRAnnotationLiteralValue) annotValue).value;
         } else {
             throw new BLangCompilerException("unexpected annotation value, " +
                     "expected a literal value, found " + annotValue);
@@ -167,7 +166,7 @@ public class AnnotationProc {
     }
 
     private static String getJMethodNameFromAnnot(String annotTagRef,
-                                                  BIRNode.ConstValue jNameValueEntry,
+                                                  BIRAnnotationValue jNameValueEntry,
                                                   BIRFunction birFunc) {
 
         if (annotTagRef.equals(CONSTRUCTOR_ANNOT_TAG)) {
@@ -178,7 +177,7 @@ public class AnnotationProc {
         }
     }
 
-    private static String getJFieldNameFromAnnot(BIRNode.ConstValue jNameValueEntry,
+    private static String getJFieldNameFromAnnot(BIRAnnotationValue jNameValueEntry,
                                                  BIRFunction birFunc) {
 
         String fieldName = (String) getLiteralValueFromAnnotValue(jNameValueEntry);

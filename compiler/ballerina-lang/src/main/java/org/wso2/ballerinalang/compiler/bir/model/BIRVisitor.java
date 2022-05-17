@@ -68,10 +68,6 @@ public abstract class BIRVisitor {
         throw new AssertionError();
     }
 
-    public void visit(BIRNode.BIRConstAnnotationAttachment birConstAnnotAttach) {
-        throw new AssertionError();
-    }
-
     public void visit(BIRNode.BIRErrorEntry birErrorEntry) {
         throw new AssertionError();
     }

@@ -53,7 +53,6 @@ import org.wso2.ballerinalang.compiler.util.Unifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import static org.objectweb.asm.Opcodes.AASTORE;
 import static org.objectweb.asm.Opcodes.ACONST_NULL;
@@ -947,26 +946,35 @@ public class JvmTerminatorGen {
             for (BIRNode.BIRAnnotationAttachment annotationAttachment : callIns.annotAttachments) {
                 if (annotationAttachment == null ||
                         !STRAND.equals(annotationAttachment.annotTagRef.value) ||
-                        !JvmCodeGenUtil.isBuiltInPackage(annotationAttachment.annotPkgId)) {
+                        !JvmCodeGenUtil.isBuiltInPackage(annotationAttachment.packageID)) {
                     continue;
                 }
 
-                Object strandAnnot = ((BIRNode.BIRConstAnnotationAttachment) annotationAttachment).annotValue.value;
-                if (strandAnnot instanceof Map) {
-                    Map<String, BIRNode.ConstValue> recordValue = (Map<String, BIRNode.ConstValue>) strandAnnot;
-                    if (recordValue.containsKey(STRAND_THREAD)) {
-                        if (STRAND_VALUE_ANY.equals(recordValue.get(STRAND_THREAD).value)) {
+                if (annotationAttachment.annotValues.size() == 0) {
+                    break;
+                }
+
+                BIRNode.BIRAnnotationValue strandAnnot = annotationAttachment.annotValues.get(0);
+                if (strandAnnot instanceof BIRNode.BIRAnnotationRecordValue) {
+                    BIRNode.BIRAnnotationRecordValue recordValue = (BIRNode.BIRAnnotationRecordValue) strandAnnot;
+                    if (recordValue.annotValueEntryMap.containsKey(STRAND_THREAD)) {
+                        BIRNode.BIRAnnotationValue mapVal = recordValue.annotValueEntryMap.get(STRAND_THREAD);
+                        if (mapVal instanceof BIRNode.BIRAnnotationLiteralValue &&
+                                STRAND_VALUE_ANY.equals(((BIRNode.BIRAnnotationLiteralValue) mapVal).value)) {
                             concurrent = true;
                         }
                     }
 
-                    if (recordValue.containsKey(STRAND_NAME)) {
-                        strandName = recordValue.get(STRAND_NAME).value.toString();
+                    if (recordValue.annotValueEntryMap.containsKey(STRAND_NAME)) {
+                        strandName = ((BIRNode.BIRAnnotationLiteralValue) recordValue.
+                                annotValueEntryMap.get(STRAND_NAME)).value.toString();
 
                     }
 
-                    if (recordValue.containsKey(STRAND_POLICY_NAME)) {
-                        if (!DEFAULT_STRAND_DISPATCHER.equals(recordValue.get(STRAND_POLICY_NAME).value)) {
+                    if (recordValue.annotValueEntryMap.containsKey(STRAND_POLICY_NAME)) {
+                        BIRNode.BIRAnnotationValue mapVal = recordValue.annotValueEntryMap.get(STRAND_POLICY_NAME);
+                        if (mapVal instanceof BIRNode.BIRAnnotationLiteralValue &&
+                                !DEFAULT_STRAND_DISPATCHER.equals(((BIRNode.BIRAnnotationLiteralValue) mapVal).value)) {
                             throw new BLangCompilerException("Unsupported policy. Only 'DEFAULT' policy is " +
                                     "supported by jBallerina runtime.");
                         }

@@ -24,7 +24,6 @@ import org.ballerinalang.model.elements.AttachPoint;
 import org.ballerinalang.model.elements.Flag;
 import org.ballerinalang.model.elements.MarkdownDocAttachment;
 import org.ballerinalang.model.elements.PackageID;
-import org.ballerinalang.model.symbols.Annotatable;
 import org.ballerinalang.model.symbols.SymbolKind;
 import org.ballerinalang.model.symbols.SymbolOrigin;
 import org.ballerinalang.model.tree.NodeKind;
@@ -43,7 +42,6 @@ import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
 import org.wso2.ballerinalang.compiler.semantics.model.Scope;
 import org.wso2.ballerinalang.compiler.semantics.model.SymbolEnv;
 import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
-import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAnnotationAttachmentSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAnnotationSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAttachedFunction;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BClassSymbol;
@@ -473,6 +471,9 @@ public class BIRPackageSymbolEnter {
 
         byte[] docBytes = readDocBytes(dataInStream);
 
+        // Skip annotation attachments for now
+        dataInStream.skip(dataInStream.readLong());
+
         BType type = readBType(dataInStream);
 
         BTypeReferenceType referenceType = null;
@@ -495,8 +496,7 @@ public class BIRPackageSymbolEnter {
         flags = Symbols.isFlagOn(type.tsymbol.flags, Flags.CLIENT) ? flags | Flags.CLIENT : flags;
 
         BSymbol symbol;
-        boolean isEnum = Symbols.isFlagOn(type.tsymbol.flags, Flags.ENUM);
-        if (isClass || isEnum) {
+        if (isClass || Symbols.isFlagOn(type.tsymbol.flags, Flags.ENUM)) {
             symbol = type.tsymbol;
             symbol.pos = pos;
         } else {
@@ -509,9 +509,6 @@ public class BIRPackageSymbolEnter {
         symbol.flags = flags;
 
         defineMarkDownDocAttachment(symbol, docBytes);
-        defineAnnotAttachmentSymbols(dataInStream,
-                                     (isClass || isEnum || symbol.tag == SymTag.TYPE_DEF) ? (Annotatable) symbol :
-                                             null);
 
         if (type.tsymbol.name == Names.EMPTY && type.tag != TypeTags.INVOKABLE) {
             type.tsymbol.name = symbol.name;
@@ -675,37 +672,11 @@ public class BIRPackageSymbolEnter {
         annotationSymbol.type = new BAnnotationType(annotationSymbol);
 
         defineMarkDownDocAttachment(annotationSymbol, readDocBytes(dataInStream));
-        defineAnnotAttachmentSymbols(dataInStream, annotationSymbol);
 
         if (annotationType != symTable.noType) { //TODO fix properly
             annotationSymbol.attachedType = annotationType;
         }
         return annotationSymbol;
-    }
-
-    private BAnnotationAttachmentSymbol defineAnnotationAttachmentSymbol(DataInputStream dataInStream, BSymbol owner)
-            throws IOException {
-        PackageID pkgId = getPackageId(dataInStream.readInt());
-        Location pos = readPosition(dataInStream);
-        Name annotTagRef = Names.fromString(getStringCPEntryValue(dataInStream.readInt()));
-
-        boolean constAnnotation = dataInStream.readBoolean();
-
-        if (!constAnnotation) {
-            return new BAnnotationAttachmentSymbol(pkgId, annotTagRef, this.env.pkgSymbol.pkgID, owner, pos,
-                                                   COMPILED_SOURCE, null);
-        }
-
-        BType constantValType = readBType(dataInStream);
-
-        BConstantSymbol constantSymbol = new BConstantSymbol(0, Names.EMPTY, Names.EMPTY,
-                                                             this.env.pkgSymbol.pkgID, null, constantValType,
-                                                             owner, pos, COMPILED_SOURCE);
-        constantSymbol.value = readConstLiteralValue(constantValType, dataInStream);
-        constantSymbol.literalType = constantSymbol.value.type;
-        return new BAnnotationAttachmentSymbol.BConstAnnotationAttachmentSymbol(pkgId, annotTagRef,
-                                                                                this.env.pkgSymbol.pkgID, owner, pos,
-                                                                                COMPILED_SOURCE, constantSymbol, null);
     }
 
     private void defineConstant(DataInputStream dataInStream) throws IOException {
@@ -725,7 +696,6 @@ public class BIRPackageSymbolEnter {
                                                              pos, toOrigin(origin));
 
         defineMarkDownDocAttachment(constantSymbol, docBytes);
-        defineAnnotAttachmentSymbols(dataInStream, constantSymbol);
 
         // read and ignore constant value's byte chunk length.
         dataInStream.readLong();
@@ -764,15 +734,6 @@ public class BIRPackageSymbolEnter {
                     keyValuePairs.put(key, value);
                 }
                 return new BLangConstantValue(keyValuePairs, valueType);
-            case TypeTags.TUPLE:
-                int tupleSize = dataInStream.readInt();
-                List<BLangConstantValue> members = new ArrayList<>(tupleSize);
-                for (int i = 0; i < tupleSize; i++) {
-                    BType type = readBType(dataInStream);
-                    BLangConstantValue value = readConstLiteralValue(type, dataInStream);
-                    members.add(value);
-                }
-                return new BLangConstantValue(members, valueType);
             case TypeTags.INTERSECTION:
                 return readConstLiteralValue(((BIntersectionType) valueType).effectiveType, dataInStream);
             case TypeTags.TYPEREFDESC:
@@ -860,7 +821,6 @@ public class BIRPackageSymbolEnter {
         this.globalVarMap.put(varName, varSymbol);
 
         defineMarkDownDocAttachment(varSymbol, docBytes);
-        defineAnnotAttachmentSymbols(dataInStream, varSymbol);
 
         enclScope.define(varSymbol.name, varSymbol);
     }
@@ -878,7 +838,8 @@ public class BIRPackageSymbolEnter {
                                                   invokableType.paramTypes.get(i), invokableSymbol,
                                                   symTable.builtinPos, COMPILED_SOURCE);
             varSymbol.isDefaultable = ((flags & Flags.OPTIONAL) == Flags.OPTIONAL);
-            defineAnnotAttachmentSymbols(dataInStream, varSymbol);
+
+            defineParamAnnotSymbols(dataInStream, varSymbol);
             invokableSymbol.params.add(varSymbol);
         }
 
@@ -888,7 +849,7 @@ public class BIRPackageSymbolEnter {
                                                   invokableType.restType, invokableSymbol, symTable.builtinPos,
                                                   COMPILED_SOURCE);
             invokableSymbol.restParam = restParam;
-            defineAnnotAttachmentSymbols(dataInStream, restParam);
+            defineParamAnnotSymbols(dataInStream, restParam);
         }
 
         if (Symbols.isFlagOn(invokableSymbol.retType.flags, Flags.PARAMETERIZED)) {
@@ -915,18 +876,10 @@ public class BIRPackageSymbolEnter {
         }
     }
 
-    private void defineAnnotAttachmentSymbols(DataInputStream dataInStream, Annotatable owner) throws IOException {
-        dataInStream.readLong(); // Read and skip annotation symbol info length.
+    private void defineParamAnnotSymbols(DataInputStream dataInStream, BVarSymbol varSymbol) throws IOException {
         int annotSymbolCount = dataInStream.readInt();
-
-        if (annotSymbolCount == 0) {
-            return;
-        }
-
-        List<BAnnotationAttachmentSymbol> annotationAttachmentSymbols =
-                (List<BAnnotationAttachmentSymbol>) owner.getAnnotations();
         for (int j = 0; j < annotSymbolCount; j++) {
-            annotationAttachmentSymbols.add(defineAnnotationAttachmentSymbol(dataInStream, (BSymbol) owner));
+            varSymbol.addAnnotation(defineAnnotation(dataInStream));
         }
     }
 

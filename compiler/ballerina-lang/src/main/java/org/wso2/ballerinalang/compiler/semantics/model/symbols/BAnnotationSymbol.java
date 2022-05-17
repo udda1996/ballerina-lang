@@ -20,7 +20,6 @@ package org.wso2.ballerinalang.compiler.semantics.model.symbols;
 import io.ballerina.tools.diagnostics.Location;
 import org.ballerinalang.model.elements.AttachPoint;
 import org.ballerinalang.model.elements.PackageID;
-import org.ballerinalang.model.symbols.AnnotationAttachmentSymbol;
 import org.ballerinalang.model.symbols.AnnotationSymbol;
 import org.ballerinalang.model.symbols.SymbolOrigin;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
@@ -44,27 +43,27 @@ public class BAnnotationSymbol extends BTypeSymbol implements AnnotationSymbol {
     public BType attachedType;
     public Set<AttachPoint> points;
     public int maskedPoints;
-    private List<BAnnotationAttachmentSymbol> annotationAttachments;
+    private List<BAnnotationSymbol> annots;
 
     public BAnnotationSymbol(Name name, Name originalName, long flags, Set<AttachPoint> points, PackageID pkgID,
                              BType type, BSymbol owner, Location pos, SymbolOrigin origin) {
         super(ANNOTATION, flags, name, originalName, pkgID, type, owner, pos, origin);
         this.points = points;
         this.maskedPoints = getMaskedPoints(points);
-        this.annotationAttachments = new ArrayList<>();
+        this.annots = new ArrayList<>();
     }
 
     @Override
-    public void addAnnotation(AnnotationAttachmentSymbol symbol) {
+    public void addAnnotation(AnnotationSymbol symbol) {
         if (symbol == null) {
             return;
         }
-        this.annotationAttachments.add((BAnnotationAttachmentSymbol) symbol);
+        this.annots.add((BAnnotationSymbol) symbol);
     }
 
     @Override
-    public List<? extends AnnotationAttachmentSymbol> getAnnotations() {
-        return this.annotationAttachments;
+    public List<? extends AnnotationSymbol> getAnnotations() {
+        return this.annots;
     }
 
     @Override

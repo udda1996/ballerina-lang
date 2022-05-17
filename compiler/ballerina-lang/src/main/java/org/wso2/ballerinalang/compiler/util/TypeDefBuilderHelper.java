@@ -295,8 +295,7 @@ public class TypeDefBuilderHelper {
 
     public static String getPackageAlias(SymbolEnv env, String compUnitName, PackageID typePkgId) {
         for (BLangImportPackage importStmt : env.enclPkg.imports) {
-            if (importStmt == null || importStmt.compUnit == null || importStmt.compUnit.value == null ||
-                    !importStmt.compUnit.value.equals(compUnitName)) {
+            if (!importStmt.compUnit.value.equals(compUnitName)) {
                 continue;
             }
 

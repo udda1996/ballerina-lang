@@ -271,11 +271,3 @@ service /introspection on lis {
         return;
     }
 }
-
-public const annotation A v25 on type;
-public const annotation map<int> v26 on type;
-
-@v25
-@v26
-type MyType2 int[]|string;
-
