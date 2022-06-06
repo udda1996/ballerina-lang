@@ -121,14 +121,3 @@ public readonly class Human {
 public isolated function loadHuman() returns HumanObj {
     return new Human();
 }
-
-public type Detail record {
-   int severity;
-};
-
-public type ApplicationResponseError error & error<Detail>;
-
-public function testAnonTypeDefSymbolsIsNotVisible() {
-    ApplicationResponseError err = error("",  severity = 1);
-    Detail _ = err.detail();
-}
