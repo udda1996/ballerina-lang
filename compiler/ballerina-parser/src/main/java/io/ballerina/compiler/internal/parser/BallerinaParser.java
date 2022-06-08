@@ -13508,7 +13508,7 @@ public class BallerinaParser extends AbstractParser {
             case START_KEYWORD:
             case FLUSH_KEYWORD:
             case LEFT_ARROW_TOKEN:
-            case WAIT_KEYWORD:
+            case WAIT_KEYWORD: // comment
             case COMMIT_KEYWORD:
 
                 // Even-though worker is not a statement, we parse it as statements.
