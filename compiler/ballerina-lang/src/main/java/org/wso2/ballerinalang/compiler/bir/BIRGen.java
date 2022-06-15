@@ -368,10 +368,6 @@ public class BIRGen extends BLangNodeVisitor {
             if (type.tsymbol.owner == symbol.owner
                     && !(Symbols.isFlagOn(typeSymbol.flags, Flags.CLASS))) {
                 typeDefs.put(typeSymbol, typeDef);
-            } else {
-                if (referenceType != null) {
-                    typeDef.type = referenceType;
-                }
             }
             typeDef.annotAttachments.addAll(getBIRAnnotAttachments(((BTypeDefinitionSymbol) symbol).getAnnotations()));
         } else {

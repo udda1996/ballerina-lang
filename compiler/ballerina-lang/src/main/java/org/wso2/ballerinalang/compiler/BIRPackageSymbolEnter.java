@@ -113,6 +113,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -478,9 +479,14 @@ public class BIRPackageSymbolEnter {
         BTypeReferenceType referenceType = null;
         boolean hasReferenceType = dataInStream.readBoolean();
         if (hasReferenceType) {
-            BTypeSymbol typeSymbol = new BTypeSymbol(SymTag.TYPE_REF, flags, names.fromString(typeDefName),
-                    this.env.pkgSymbol.pkgID, type, this.env.pkgSymbol, pos, COMPILED_SOURCE);
-            referenceType = new BTypeReferenceType(type, typeSymbol, flags);
+            if (type.tag == TypeTags.TYPEREFDESC && Objects.equals(type.tsymbol.name.value, typeDefName)
+                    && type.tsymbol.owner == this.env.pkgSymbol) {
+                referenceType = (BTypeReferenceType) type;
+            } else {
+                BTypeSymbol typeSymbol = new BTypeSymbol(SymTag.TYPE_REF, flags, names.fromString(typeDefName),
+                        this.env.pkgSymbol.pkgID, type, this.env.pkgSymbol, pos, COMPILED_SOURCE);
+                referenceType = new BTypeReferenceType(type, typeSymbol, flags);
+            }
         }
 
         if (type.tag == TypeTags.INVOKABLE) {
@@ -488,11 +494,7 @@ public class BIRPackageSymbolEnter {
         }
 
         // Temp solution to add abstract flag if available TODO find a better approach
-        boolean isClass = Symbols.isFlagOn(type.tsymbol.flags, Flags.CLASS);
-        flags = isClass ? flags | Flags.CLASS : flags;
-
-        // Temp solution to add client flag if available TODO find a better approach
-        flags = Symbols.isFlagOn(type.tsymbol.flags, Flags.CLIENT) ? flags | Flags.CLIENT : flags;
+        boolean isClass = Symbols.isFlagOn(flags, Flags.CLASS);
 
         BSymbol symbol;
         boolean isEnum = Symbols.isFlagOn(type.tsymbol.flags, Flags.ENUM);
