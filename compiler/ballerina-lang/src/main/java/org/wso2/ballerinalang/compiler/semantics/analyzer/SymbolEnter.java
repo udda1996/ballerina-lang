@@ -268,7 +268,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     }
 
     private void cleanup() {
-        unknownTypeRefs.clear();
+        unknownTypeRefs = new HashSet<>();
     }
 
     public BLangPackage definePackage(BLangPackage pkgNode) {
@@ -406,10 +406,12 @@ public class SymbolEnter extends BLangNodeVisitor {
         // Treat constants and type definitions in the same manner, since constants can be used as
         // types. Also, there can be references between constant and type definitions in both ways.
         // Thus visit them according to the precedence.
-        List<BLangNode> typeAndClassDefs = new ArrayList<>();
+        List<BLangClassDefinition> classDefinitions = getClassDefinitions(pkgNode.topLevelNodes);
+
+        List<BLangNode> typeAndClassDefs = new ArrayList<>(pkgNode.constants.size() +
+                pkgNode.typeDefinitions.size() + classDefinitions.size());
         pkgNode.constants.forEach(constant -> typeAndClassDefs.add(constant));
         pkgNode.typeDefinitions.forEach(typDef -> typeAndClassDefs.add(typDef));
-        List<BLangClassDefinition> classDefinitions = getClassDefinitions(pkgNode.topLevelNodes);
         classDefinitions.forEach(classDefn -> typeAndClassDefs.add(classDefn));
         defineTypeNodes(typeAndClassDefs, pkgEnv);
 
@@ -1336,7 +1338,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         BLangIntersectionTypeNode intersectionTypeNode =
                 (BLangIntersectionTypeNode) ((BLangTypeDefinition) typeDef).typeNode;
 
-        Set<BType> errorTypes = new HashSet<>();
+        Set<BType> errorTypes = new HashSet<>(intersectionTypeNode.constituentTypeNodes.size());
 
         for (BLangType type : intersectionTypeNode.constituentTypeNodes) {
             BType bType = symResolver.resolveTypeNode(type, env);
@@ -1909,9 +1911,9 @@ public class SymbolEnter extends BLangNodeVisitor {
     }
 
     private BEnumSymbol createEnumSymbol(BLangTypeDefinition typeDefinition, BType definedType) {
-        List<BConstantSymbol> enumMembers = new ArrayList<>();
 
         List<BLangType> members = ((BLangUnionTypeNode) typeDefinition.typeNode).memberTypeNodes;
+        List<BConstantSymbol> enumMembers = new ArrayList<>(members.size());
         for (BLangType member : members) {
             enumMembers.add((BConstantSymbol) ((BLangUserDefinedType) member).symbol);
         }
@@ -2035,7 +2037,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     }
 
     private BType constructDependencyListError(BLangTypeDefinition typeDef, BType member) {
-        List<String> dependencyList = new ArrayList<>();
+        List<String> dependencyList = new ArrayList<>(2);
         dependencyList.add(getTypeOrClassName(typeDef));
         dependencyList.add(member.tsymbol.name.value);
         dlog.error(typeDef.getPosition(), DiagnosticErrorCode.CYCLIC_TYPE_REFERENCE, dependencyList);
@@ -2494,7 +2496,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                     if (possibleTypes.size() > 1) {
                         List<BType> memberTupleTypes = new ArrayList<>();
                         for (int i = 0; i < varNode.memberVariables.size(); i++) {
-                            LinkedHashSet<BType> memberTypes = new LinkedHashSet<>();
+                            LinkedHashSet<BType> memberTypes = new LinkedHashSet<>(possibleTypes.size());
                             for (BType possibleType : possibleTypes) {
                                 if (possibleType.tag == TypeTags.TUPLE) {
                                     memberTypes.add(((BTupleType) possibleType).tupleTypes.get(i));
@@ -2522,7 +2524,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                         break;
                     }
 
-                    List<BType> memberTypes = new ArrayList<>();
+                    List<BType> memberTypes = new ArrayList<>(varNode.memberVariables.size());
                     for (int i = 0; i < varNode.memberVariables.size(); i++) {
                         memberTypes.add(possibleTypes.get(0));
                     }
@@ -2531,7 +2533,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                     break;
                 case TypeTags.ANY:
                 case TypeTags.ANYDATA:
-                    List<BType> memberTupleTypes = new ArrayList<>();
+                    List<BType> memberTupleTypes = new ArrayList<>(varNode.memberVariables.size());
                     for (int i = 0; i < varNode.memberVariables.size(); i++) {
                         memberTupleTypes.add(referredType);
                     }
@@ -2544,8 +2546,8 @@ public class SymbolEnter extends BLangNodeVisitor {
                     tupleTypeNode = (BTupleType) referredType;
                     break;
                 case TypeTags.ARRAY:
-                    List<BType> tupleTypes = new ArrayList<>();
                     BArrayType arrayType = (BArrayType) referredType;
+                    List<BType> tupleTypes = new ArrayList<>(arrayType.size);
                     for (int i = 0; i < arrayType.size; i++) {
                         tupleTypes.add(arrayType.eType);
                     }
@@ -2588,7 +2590,7 @@ public class SymbolEnter extends BLangNodeVisitor {
             int tupleNodeMemCount = tupleTypeNode.tupleTypes.size();
             int varNodeMemCount = varNode.memberVariables.size();
             BType restType = tupleTypeNode.restType;
-            List<BType> memberTypes = new ArrayList<>();
+            List<BType> memberTypes = new ArrayList<>(tupleNodeMemCount);
             if (varNodeMemCount < tupleNodeMemCount) {
                 for (int j = varNodeMemCount; j < tupleNodeMemCount; j++) {
                     memberTypes.add(tupleTypeNode.tupleTypes.get(j));
@@ -2616,7 +2618,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         if (varNode.restVariable == null) {
             return null;
         }
-        LinkedHashSet<BType> memberRestTypes = new LinkedHashSet<>();
+        LinkedHashSet<BType> memberRestTypes = new LinkedHashSet<>(possibleTypes.size());
         for (BType possibleType : possibleTypes) {
             if (possibleType.tag == TypeTags.TUPLE) {
                 BTupleType tupleType = (BTupleType) possibleType;
@@ -2779,7 +2781,7 @@ public class SymbolEnter extends BLangNodeVisitor {
 
     private BType createRestFieldFromPossibleTypes(Location pos, SymbolEnv env, List<BType> possibleTypes,
                                                    LinkedHashMap<String, BField> boundedFields, BSymbol recordSymbol) {
-        LinkedHashSet<BType> restFieldMemberTypes = new LinkedHashSet<>();
+        LinkedHashSet<BType> restFieldMemberTypes = new LinkedHashSet<>(possibleTypes.size());
         List<LinkedHashMap<String, BField>> possibleRecordFieldMapList = new ArrayList<>();
 
         for (BType possibleType : possibleTypes) {
@@ -2852,9 +2854,9 @@ public class SymbolEnter extends BLangNodeVisitor {
     private LinkedHashMap<String, BField> populateAndGetPossibleFieldsForRecVar(Location pos, List<BType> possibleTypes,
                                                                                 List<String> fieldNames,
                                                                                 BSymbol recordSymbol, SymbolEnv env) {
-        LinkedHashMap<String, BField> fields = new LinkedHashMap<>();
+        LinkedHashMap<String, BField> fields = new LinkedHashMap<>(fieldNames.size());
         for (String fieldName : fieldNames) {
-            LinkedHashSet<BType> memberTypes = new LinkedHashSet<>();
+            LinkedHashSet<BType> memberTypes = new LinkedHashSet<>(possibleTypes.size());
             for (BType possibleType : possibleTypes) {
                 if (possibleType.tag == TypeTags.RECORD) {
                     BRecordType possibleRecordType = (BRecordType) possibleType;
@@ -2905,7 +2907,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                 env.enclPkg.symbol.pkgID, null, env.scope.owner,
                 recordVar.pos, SOURCE);
         //TODO check below field position
-        LinkedHashMap<String, BField> fields = new LinkedHashMap<>();
+        LinkedHashMap<String, BField> fields = new LinkedHashMap<>(recordVar.variableList.size());
         for (BLangRecordVariable.BLangRecordVariableKeyValue bLangRecordVariableKeyValue : recordVar.variableList) {
             Name fieldName = names.fromIdNode(bLangRecordVariableKeyValue.key);
             BField bField = new BField(fieldName, recordVar.pos,
@@ -3051,7 +3053,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     public BType getRestMatchPatternConstraintType(BRecordType recordType,
                                            Map<String, BField> remainingFields,
                                            BType restVarSymbolMapType) {
-        LinkedHashSet<BType> constraintTypes = new LinkedHashSet<>();
+        LinkedHashSet<BType> constraintTypes = new LinkedHashSet<>(remainingFields.size() + 1);
         for (BField field : remainingFields.values()) {
             constraintTypes.add(field.type);
         }
@@ -3101,8 +3103,11 @@ public class SymbolEnter extends BLangNodeVisitor {
                              LinkedHashMap<String, BField> unMappedFields,
                              List<String> variableList, BType restConstraint,
                              BRecordType targetRestRecType) {
-        LinkedHashMap<String, BField> fields = new LinkedHashMap<>();
-        LinkedHashMap<String, BField> markAsOptional = new LinkedHashMap<>();
+        LinkedHashMap<String, BField> fields = new LinkedHashMap<>(variableList.size() +
+                targetRestRecType.fields.size() +
+                unMappedFields.size());
+        LinkedHashMap<String, BField> markAsOptional = new LinkedHashMap<>(unMappedFields.size() +
+                targetRestRecType.fields.size());
 
         if (!targetRestRecType.fields.isEmpty()) {
             fields.putAll(targetRestRecType.fields);
@@ -3259,7 +3264,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                 }
 
                 if (possibleTypes.size() > 1) {
-                    LinkedHashSet<BType> detailType = new LinkedHashSet<>();
+                    LinkedHashSet<BType> detailType = new LinkedHashSet<>(possibleTypes.size());
                     for (BErrorType possibleErrType : possibleTypes) {
                         detailType.add(possibleErrType.detailType);
                     }
@@ -3327,7 +3332,7 @@ public class SymbolEnter extends BLangNodeVisitor {
 
         BRecordType recordType = getDetailAsARecordType(errorType);
         LinkedHashMap<String, BField> detailFields = recordType.fields;
-        Set<String> matchedDetailFields = new HashSet<>();
+        Set<String> matchedDetailFields = new HashSet<>(errorVariable.detail.size());
         for (BLangErrorVariable.BLangErrorDetailEntry errorDetailEntry : errorVariable.detail) {
             String entryName = errorDetailEntry.key.getValue();
             matchedDetailFields.add(entryName);
@@ -4427,7 +4432,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                                              SymbolEnv invokableEnv) {
         boolean foundDefaultableParam = false;
         boolean foundIncludedRecordParam = false;
-        List<BVarSymbol> paramSymbols = new ArrayList<>();
+        List<BVarSymbol> paramSymbols = new ArrayList<>(invokableNode.requiredParams.size());
         Set<String> requiredParamNames = new HashSet<>();
         invokableNode.clonedEnv = invokableEnv.shallowClone();
         for (BLangSimpleVariable varNode : invokableNode.requiredParams) {
@@ -4465,8 +4470,9 @@ public class SymbolEnter extends BLangNodeVisitor {
                 if (varNodeType.getKind() == TypeKind.RECORD) {
                     symbol.flags |= Flags.INCLUDED;
                     LinkedHashMap<String, BField> fields = ((BRecordType) varNodeType).fields;
-                    for (String fieldName : fields.keySet()) {
-                        BField field = fields.get(fieldName);
+                    for (Map.Entry<String, BField> entry : fields.entrySet()) {
+                        String fieldName = entry.getKey();
+                        BField field = entry.getValue();
                         if (field.symbol.type.tag != TypeTags.NEVER) {
                             if (!requiredParamNames.add(fieldName)) {
                                 dlog.error(varNode.pos, REDECLARED_SYMBOL, fieldName);
@@ -4865,10 +4871,11 @@ public class SymbolEnter extends BLangNodeVisitor {
         if (docNode == null) {
             return new MarkdownDocAttachment(0);
         }
-        MarkdownDocAttachment docAttachment = new MarkdownDocAttachment(docNode.getParameters().size());
+        List<BLangMarkdownParameterDocumentation> docNodeParameters = docNode.getParameters();
+        MarkdownDocAttachment docAttachment = new MarkdownDocAttachment(docNodeParameters.size());
         docAttachment.description = docNode.getDocumentation();
 
-        for (BLangMarkdownParameterDocumentation p : docNode.getParameters()) {
+        for (BLangMarkdownParameterDocumentation p : docNodeParameters) {
             docAttachment.parameters.add(new MarkdownDocAttachment.Parameter(p.parameterName.value,
                                                                              p.getParameterDocumentation()));
         }
@@ -4889,7 +4896,8 @@ public class SymbolEnter extends BLangNodeVisitor {
             return docAttachment;
         }
 
-        for (BLangMarkdownParameterDocumentation param : deprecatedParamsDocs.getParameters()) {
+        List<BLangMarkdownParameterDocumentation> deprecatedParams = deprecatedParamsDocs.getParameters();
+        for (BLangMarkdownParameterDocumentation param : deprecatedParams) {
             docAttachment.deprecatedParams.add(
                     new MarkdownDocAttachment.Parameter(param.parameterName.value, param.getParameterDocumentation()));
         }

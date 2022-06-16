@@ -306,7 +306,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
             transactionInternalModuleIncluded = true;
         }
 
-        List<BLangExpression> args = new ArrayList<>();
+        List<BLangExpression> args = new ArrayList<>(2);
         args.add(transactionBlockIDLiteral);
         args.add(prevAttempt);
         BLangInvocation startTransactionInvocation = ASTBuilderUtil.
@@ -325,7 +325,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
             transactionInternalModuleIncluded = true;
         }
 
-        List<BLangExpression> args = new ArrayList<>();
+        List<BLangExpression> args = new ArrayList<>(1);
         args.add(ASTBuilderUtil.createLiteral(pos, symTable.stringType, String.valueOf(++trxResourceCount)));
         BLangInvocation startTransactionInvocation = ASTBuilderUtil.
                 createInvocationExprForMethod(pos, beginParticipantInvokableSymbol, args, symResolver);
@@ -471,7 +471,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
         List<BLangExpression> args;
         BInvokableSymbol cleanupTrxInvokableSymbol =
                 (BInvokableSymbol) getInternalTransactionModuleInvokableSymbol(CLEAN_UP_TRANSACTION);
-        args = new ArrayList<>();
+        args = new ArrayList<>(1);
         args.add(trxBlockId);
         BLangInvocation cleanupTrxInvocation = ASTBuilderUtil.
                 createInvocationExprForMethod(pos, cleanupTrxInvokableSymbol, args, symResolver);
@@ -487,7 +487,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
         // rollbackTransaction(transactionBlockID);
         BInvokableSymbol rollbackTransactionInvokableSymbol =
                 (BInvokableSymbol) getInternalTransactionModuleInvokableSymbol(ROLLBACK_TRANSACTION);
-        List<BLangExpression> args = new ArrayList<>();
+        List<BLangExpression> args = new ArrayList<>(3);
         args.add(trxBlockId);
         if (shouldRetryRef != null) {
             BLangNamedArgsExpression shouldRetry = new BLangNamedArgsExpression();
@@ -552,7 +552,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
         //string|error commitResult = endTransaction(transactionID, transactionBlockID);
         BInvokableSymbol commitTransactionInvokableSymbol =
                 (BInvokableSymbol) getInternalTransactionModuleInvokableSymbol(END_TRANSACTION);
-        List<BLangExpression> args = new ArrayList<>();
+        List<BLangExpression> args = new ArrayList<>(2);
         args.add(transactionID);
         args.add(trxBlockId);
         BLangInvocation commitTransactionInvocation = ASTBuilderUtil.
@@ -604,7 +604,7 @@ public class TransactionDesugar extends BLangNodeVisitor {
         failureValidationGroupExpr.setBType(symTable.booleanType);
         BLangSimpleVarRef failureValidationExprVarRef = ASTBuilderUtil.createVariableRef(pos,
                 isTransactionFailedVariable.symbol);
-        List<BType> paramTypes = new ArrayList<>();
+        List<BType> paramTypes = new ArrayList<>(1);
         paramTypes.add(symTable.booleanType);
         BInvokableType type = new BInvokableType(paramTypes, symTable.booleanType,
                                                  null);

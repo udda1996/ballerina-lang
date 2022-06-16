@@ -105,8 +105,9 @@ public class Package {
     }
 
     public Iterable<Module> modules() {
-        List<Module> moduleList = new ArrayList<>();
-        for (ModuleId moduleId : this.packageContext.moduleIds()) {
+        Collection<ModuleId> moduleIds = this.packageContext.moduleIds();
+        List<Module> moduleList = new ArrayList<>(moduleIds.size());
+        for (ModuleId moduleId : moduleIds) {
             moduleList.add(module(moduleId));
         }
         return new ModuleIterable(moduleList);
@@ -563,8 +564,9 @@ public class Package {
         }
 
         private Map<ModuleId, ModuleContext> copyModules(Package oldPackage) {
-            Map<ModuleId, ModuleContext> moduleContextMap = new HashMap<>();
-            for (ModuleId moduleId : oldPackage.packageContext.moduleIds()) {
+            Collection<ModuleId> moduleIds = oldPackage.packageContext.moduleIds();
+            Map<ModuleId, ModuleContext> moduleContextMap = new HashMap<>(moduleIds.size());
+            for (ModuleId moduleId : moduleIds) {
                 moduleContextMap.put(moduleId, oldPackage.packageContext.moduleContext(moduleId));
             }
             return moduleContextMap;
@@ -658,8 +660,9 @@ public class Package {
         }
 
         private void updateModules() {
-            Set<ModuleContext> moduleContextSet = new HashSet<>();
-            for (Map.Entry<ModuleId, ModuleContext> moduleIdModuleContextEntry : moduleContextMap.entrySet()) {
+            Set<Map.Entry<ModuleId, ModuleContext>> moduleContextMapEntrySet = moduleContextMap.entrySet();
+            Set<ModuleContext> moduleContextSet = new HashSet<>(moduleContextMapEntrySet.size());
+            for (Map.Entry<ModuleId, ModuleContext> moduleIdModuleContextEntry : moduleContextMapEntrySet) {
                 ModuleId moduleId = moduleIdModuleContextEntry.getKey();
                 ModuleContext oldModuleContext = moduleIdModuleContextEntry.getValue();
 
@@ -668,23 +671,27 @@ public class Package {
                         packageDescriptor.name(), oldModuleContext.moduleName().moduleNamePart());
                 ModuleDescriptor moduleDescriptor = ModuleDescriptor.from(moduleName, packageDescriptor);
 
-                Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
-                for (DocumentId documentId : oldModuleContext.srcDocumentIds()) {
+                Collection<DocumentId> srcDocumentIds = oldModuleContext.srcDocumentIds();
+                Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>(srcDocumentIds.size());
+                for (DocumentId documentId : srcDocumentIds) {
                     srcDocContextMap.put(documentId, oldModuleContext.documentContext(documentId));
                 }
 
-                Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
-                for (DocumentId documentId : oldModuleContext.testSrcDocumentIds()) {
+                Collection<DocumentId> testSrcDocumentIds = oldModuleContext.testSrcDocumentIds();
+                Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>(testSrcDocumentIds.size());
+                for (DocumentId documentId : testSrcDocumentIds) {
                     testDocContextMap.put(documentId, oldModuleContext.documentContext(documentId));
                 }
 
-                Map<DocumentId, ResourceContext> resourceMap = new HashMap<>();
-                for (DocumentId documentId : oldModuleContext.resourceIds()) {
+                Collection<DocumentId> resourceIds = oldModuleContext.resourceIds();
+                Map<DocumentId, ResourceContext> resourceMap = new HashMap<>(resourceIds.size());
+                for (DocumentId documentId : resourceIds) {
                     resourceMap.put(documentId, oldModuleContext.resourceContext(documentId));
                 }
 
-                Map<DocumentId, ResourceContext> testResourceMap = new HashMap<>();
-                for (DocumentId documentId : oldModuleContext.testResourceIds()) {
+                Collection<DocumentId> testResourceIds = oldModuleContext.testResourceIds();
+                Map<DocumentId, ResourceContext> testResourceMap = new HashMap<>(testResourceIds.size());
+                for (DocumentId documentId : testResourceIds) {
                     testResourceMap.put(documentId, oldModuleContext.resourceContext(documentId));
                 }
 

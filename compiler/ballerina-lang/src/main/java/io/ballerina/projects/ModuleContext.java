@@ -122,23 +122,27 @@ class ModuleContext {
     }
 
     static ModuleContext from(Project project, ModuleConfig moduleConfig) {
-        Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
-        for (DocumentConfig sourceDocConfig : moduleConfig.sourceDocs()) {
+        List<DocumentConfig> sourceDocs = moduleConfig.sourceDocs();
+        Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>(sourceDocs.size());
+        for (DocumentConfig sourceDocConfig : sourceDocs) {
             srcDocContextMap.put(sourceDocConfig.documentId(), DocumentContext.from(sourceDocConfig));
         }
 
-        Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
-        for (DocumentConfig testSrcDocConfig : moduleConfig.testSourceDocs()) {
+        List<DocumentConfig> testSourceDocs = moduleConfig.testSourceDocs();
+        Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>(testSourceDocs.size());
+        for (DocumentConfig testSrcDocConfig : testSourceDocs) {
             testDocContextMap.put(testSrcDocConfig.documentId(), DocumentContext.from(testSrcDocConfig));
         }
 
-        Map<DocumentId, ResourceContext> resourceContextMap = new HashMap<>();
-        for (ResourceConfig resourceConfig : moduleConfig.resources()) {
+        List<ResourceConfig> resources = moduleConfig.resources();
+        Map<DocumentId, ResourceContext> resourceContextMap = new HashMap<>(resources.size());
+        for (ResourceConfig resourceConfig : resources) {
             resourceContextMap.put(resourceConfig.documentId(), ResourceContext.from(resourceConfig));
         }
 
-        Map<DocumentId, ResourceContext> testResourceContextMap = new HashMap<>();
-        for (ResourceConfig resourceConfig : moduleConfig.testResources()) {
+        List<ResourceConfig> testResources = moduleConfig.testResources();
+        Map<DocumentId, ResourceContext> testResourceContextMap = new HashMap<>(testResources.size());
+        for (ResourceConfig resourceConfig : testResources) {
             testResourceContextMap.put(resourceConfig.documentId(), ResourceContext.from(resourceConfig));
         }
 
@@ -217,8 +221,9 @@ class ModuleContext {
         if (allModuleLoadRequests != null) {
             return allModuleLoadRequests;
         }
-        allModuleLoadRequests = new OverwritableLinkedHashSet();
-        for (DocumentContext docContext : srcDocContextMap.values()) {
+        Collection<DocumentContext> documentContexts = srcDocContextMap.values();
+        allModuleLoadRequests = new OverwritableLinkedHashSet(documentContexts.size());
+        for (DocumentContext docContext : documentContexts) {
             allModuleLoadRequests.addAll(docContext.moduleLoadRequests(moduleName(), PackageDependencyScope.DEFAULT));
         }
 
@@ -229,7 +234,7 @@ class ModuleContext {
         if (allTestModuleLoadRequests != null) {
             return allTestModuleLoadRequests;
         }
-        allTestModuleLoadRequests = new OverwritableLinkedHashSet();
+        allTestModuleLoadRequests = new OverwritableLinkedHashSet(testDocContextMap.values().size());
         for (DocumentContext docContext : testDocContextMap.values()) {
             allTestModuleLoadRequests.addAll(
                     docContext.moduleLoadRequests(moduleName(), PackageDependencyScope.TEST_ONLY));
@@ -307,8 +312,9 @@ class ModuleContext {
     }
 
     void resolveDependencies(DependencyResolution dependencyResolution) {
-        Set<ModuleDependency> moduleDependencies = new HashSet<>();
+        Set<ModuleDependency> moduleDependencies;
         if (this.project.kind() == ProjectKind.BALA_PROJECT) {
+            moduleDependencies = new HashSet<>(moduleDescDependencies.size());
             for (ModuleDescriptor dependencyModDesc : moduleDescDependencies) {
                 // Dependencies loaded from cache should not contain test dependencies
                 addModuleDependency(dependencyModDesc.org(), dependencyModDesc.packageName(),
@@ -316,9 +322,11 @@ class ModuleContext {
                         moduleDependencies, dependencyResolution);
             }
         } else {
-            Set<ModuleLoadRequest> moduleLoadRequests = new OverwritableLinkedHashSet();
+            Set<ModuleLoadRequest> moduleLoadRequests = new OverwritableLinkedHashSet(
+                    this.allModuleLoadRequests.size() + this.allTestModuleLoadRequests.size());
             moduleLoadRequests.addAll(this.allModuleLoadRequests);
             moduleLoadRequests.addAll(this.allTestModuleLoadRequests);
+            moduleDependencies = new HashSet<>(moduleLoadRequests.size());
             for (ModuleLoadRequest modLoadRequest : moduleLoadRequests) {
                 PackageOrg packageOrg;
                 if (modLoadRequest.orgName().isEmpty()) {
@@ -541,14 +549,16 @@ class ModuleContext {
     }
 
     ModuleContext duplicate(Project project) {
-        Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
-        for (DocumentId documentId : this.srcDocumentIds()) {
+        Collection<DocumentId> srcDocumentIds = this.srcDocumentIds();
+        Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>(srcDocumentIds.size());
+        for (DocumentId documentId : srcDocumentIds) {
             DocumentContext documentContext = this.documentContext(documentId);
             srcDocContextMap.put(documentId, documentContext.duplicate());
         }
 
-        Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
-        for (DocumentId documentId : this.testSrcDocumentIds()) {
+        Collection<DocumentId> testDocumentIds = this.testSrcDocumentIds();
+        Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>(testDocumentIds.size());
+        for (DocumentId documentId : testDocumentIds) {
             DocumentContext documentContext = this.documentContext(documentId);
             testDocContextMap.put(documentId, documentContext.duplicate());
         }
@@ -564,15 +574,28 @@ class ModuleContext {
 
         private static final long serialVersionUID = 1L;
 
+        public OverwritableLinkedHashSet(int initialCapacity) {
+            super(initialCapacity);
+        }
+
+        public OverwritableLinkedHashSet() {
+            super();
+        }
+
         @Override
         public boolean add(ModuleLoadRequest moduleLoadRequest) {
             if (this.contains(moduleLoadRequest)) {
-                Set<Location> locations = new HashSet<>();
+
                 ModuleLoadRequest finalModuleLoadRequest = moduleLoadRequest;
                 ModuleLoadRequest oldLoadRequest = this.stream().filter(
                         oldRequest -> oldRequest.equals(finalModuleLoadRequest)).findFirst().orElseThrow();
-                locations.addAll(oldLoadRequest.locations());
-                locations.addAll(moduleLoadRequest.locations());
+
+                Set<Location> oldLoadRequestLocations = oldLoadRequest.locations();
+                Set<Location> moduleLoadRequestLocations = moduleLoadRequest.locations();
+                Set<Location> locations = new HashSet<>(oldLoadRequestLocations.size() +
+                        moduleLoadRequestLocations.size());
+                locations.addAll(oldLoadRequestLocations);
+                locations.addAll(moduleLoadRequestLocations);
 
                 PackageDependencyScope scope = oldLoadRequest.scope() == PackageDependencyScope.DEFAULT ?
                         oldLoadRequest.scope() : moduleLoadRequest.scope();

@@ -761,7 +761,7 @@ public class BIRPackageSymbolEnter {
                 return new BLangConstantValue(null, symTable.nilType);
             case TypeTags.RECORD:
                 int size = dataInStream.readInt();
-                Map<String, BLangConstantValue> keyValuePairs = new LinkedHashMap<>();
+                Map<String, BLangConstantValue> keyValuePairs = new LinkedHashMap<>(size);
                 for (int i = 0; i < size; i++) {
                     String key = getStringCPEntryValue(dataInStream);
                     BType type = readBType(dataInStream);
@@ -802,8 +802,8 @@ public class BIRPackageSymbolEnter {
 
         List<String> attachPoint = null;
         if (inputStream.readBoolean()) {
-            attachPoint = new ArrayList<>();
             int nSegments = inputStream.readInt();
+            attachPoint = new ArrayList<>(nSegments);
             for (int i = 0; i < nSegments; i++) {
                 attachPoint.add(getStringCPEntryValue(inputStream));
             }
@@ -897,8 +897,9 @@ public class BIRPackageSymbolEnter {
         }
 
         if (Symbols.isFlagOn(invokableSymbol.retType.flags, Flags.PARAMETERIZED)) {
-            Map<Name, BVarSymbol> paramsMap = new HashMap<>();
-            for (BVarSymbol param : invokableSymbol.params) {
+            List<BVarSymbol> params = invokableSymbol.params;
+            Map<Name, BVarSymbol> paramsMap = new HashMap<>(params.size());
+            for (BVarSymbol param : params) {
                 if (paramsMap.put(param.getName(), param) != null) {
                     throw new IllegalStateException("duplicate key: " + param.getName());
                 }
@@ -960,7 +961,7 @@ public class BIRPackageSymbolEnter {
         switch (type.tag) {
             case TypeTags.PARAMETERIZED_TYPE:
                 BParameterizedType varType = (BParameterizedType) type;
-                varType.paramSymbol = paramsMap.get(varType.name);
+                varType.paramSymbol = paramsMap.get((Name) varType.name);
                 varType.tsymbol = new BTypeSymbol(SymTag.TYPE, Flags.PARAMETERIZED | varType.paramSymbol.flags,
                                                   varType.paramSymbol.name, varType.paramSymbol.originalName,
                                                   varType.paramSymbol.pkgID, varType, invSymbol,
@@ -1631,14 +1632,14 @@ public class BIRPackageSymbolEnter {
         }
 
         private BTypeIdSet readTypeIdSet(DataInputStream inputStream) throws IOException {
-            Set<BTypeIdSet.BTypeId> primary = new HashSet<>();
             int primaryTypeIdCount = inputStream.readInt();
+            Set<BTypeIdSet.BTypeId> primary = new HashSet<>(primaryTypeIdCount);
             for (int i = 0; i < primaryTypeIdCount; i++) {
                 primary.add(readTypeId(inputStream));
             }
 
-            Set<BTypeIdSet.BTypeId> secondary = new HashSet<>();
             int secondaryTypeIdCount = inputStream.readInt();
+            Set<BTypeIdSet.BTypeId> secondary = new HashSet<>(secondaryTypeIdCount);
             for (int i = 0; i < secondaryTypeIdCount; i++) {
                 secondary.add(readTypeId(inputStream));
             }
@@ -1690,7 +1691,7 @@ public class BIRPackageSymbolEnter {
                 enumPkgEnv = SymbolEnv.createPkgEnv(null, env.pkgSymbol.scope, null);
             }
 
-            List<BConstantSymbol> members = new ArrayList<>();
+            List<BConstantSymbol> members = new ArrayList<>(memberCount);
             for (int i = 0; i < memberCount; i++) {
                 String memName = getStringCPEntryValue(inputStream);
                 BSymbol sym = symbolResolver.lookupSymbolInMainSpace(enumPkgEnv, names.fromString(memName));
